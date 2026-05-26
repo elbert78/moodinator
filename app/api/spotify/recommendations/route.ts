@@ -39,15 +39,28 @@ export async function GET(request: Request) {
     query.set("target_acousticness", params.target_acousticness.toString());
   }
 
-  const response = await fetch(
-    `https://api.spotify.com/v1/recommendations?${query.toString()}`,
-    {
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-      },
+  const baseUrl = "https://api.spotify.com/v1/recommendations";
+  const headers = {
+    Authorization: `Bearer ${session.accessToken}`,
+  };
+
+  let response = await fetch(`${baseUrl}?${query.toString()}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const fallbackQuery = new URLSearchParams({
+      limit: "8",
+      market: "US",
+      seed_genres: "pop",
+    });
+
+    response = await fetch(`${baseUrl}?${fallbackQuery.toString()}`, {
+      headers,
       cache: "no-store",
-    }
-  );
+    });
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
