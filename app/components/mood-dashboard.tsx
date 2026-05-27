@@ -276,7 +276,7 @@ export default function MoodDashboard() {
     setSavedPlaylistUrl(null);
 
     try {
-      const url = await savePlaylist(moodKey, tracks);
+      const url = await savePlaylist(activeMood, tracks);
       setSavedPlaylistUrl(url);
     } catch (error) {
       setPlaylistStatus({
