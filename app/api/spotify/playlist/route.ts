@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const profile = await profileResponse.json();
 
   const playlistResponse = await fetch(
-    `https://api.spotify.com/v1/users/${profile.id}/playlists`,
+    `https://api.spotify.com/v1/me/playlists`,
     {
       method: "POST",
       headers: {
