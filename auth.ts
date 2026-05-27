@@ -4,6 +4,7 @@ import SpotifyProvider from "next-auth/providers/spotify";
 const spotifyScopes = [
   "user-read-email",
   "user-read-private",
+  "playlist-read-private",
   "playlist-modify-public",
   "playlist-modify-private",
 ].join(" ");
