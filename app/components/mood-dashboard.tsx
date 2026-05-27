@@ -94,11 +94,14 @@ export default function MoodDashboard() {
   const [correctionMood, setCorrectionMood] = useState<MoodKey>("neutral");
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [correctionSaving, setCorrectionSaving] = useState(false);
+  const [confirmedMood, setConfirmedMood] = useState<MoodKey | null>(null);
 
   const moodKey = useMemo(
     () => mapExpressionToMood(dominantExpression),
     [dominantExpression]
   );
+
+  const activeMood = confirmedMood ?? moodKey;
 
   useEffect(() => {
     let active = true;
@@ -215,6 +218,7 @@ export default function MoodDashboard() {
     if (!isAnalyzing) return;
     if (!session?.accessToken) return;
     if (!hasFace) return;
+    if (confirmedMood) return;
     if (lastRequestedMoodRef.current === moodKey) return;
 
     lastRequestedMoodRef.current = moodKey;
@@ -224,7 +228,7 @@ export default function MoodDashboard() {
         message: error instanceof Error ? error.message : "Unknown error",
       });
     });
-  }, [isAnalyzing, moodKey, session?.accessToken, hasFace]);
+  }, [isAnalyzing, moodKey, session?.accessToken, hasFace, confirmedMood]);
 
   async function fetchRecommendations(requestedMood: MoodKey) {
     setPlaylistStatus({ state: "loading" });
@@ -288,6 +292,7 @@ export default function MoodDashboard() {
     if (!session?.accessToken) return;
     setCorrectionError(null);
     setCorrectionSaving(true);
+    let success = false;
 
     try {
       const nextTracks = await fetchRecommendations(correctionMood);
@@ -295,14 +300,20 @@ export default function MoodDashboard() {
         throw new Error("No tracks found for that mood.");
       }
       const url = await savePlaylist(correctionMood, nextTracks);
+      setConfirmedMood(correctionMood);
+      lastRequestedMoodRef.current = correctionMood;
       setSavedPlaylistUrl(url);
-      setShowCorrection(false);
+      success = true;
     } catch (error) {
-      setCorrectionError(
-        error instanceof Error ? error.message : "Unable to save playlist."
-      );
+      const message =
+        error instanceof Error ? error.message : "Unable to save playlist.";
+      setPlaylistStatus({ state: "error", message });
+      setCorrectionError(message);
     } finally {
       setCorrectionSaving(false);
+      if (success) {
+        setShowCorrection(false);
+      }
     }
   }
 
@@ -408,16 +419,16 @@ export default function MoodDashboard() {
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-lg font-semibold text-slate-900">You seem</span>
           <span
-            className={`rounded-full px-4 py-1 text-sm font-semibold ${moodDetails[moodKey].badge}`}
+            className={`rounded-full px-4 py-1 text-sm font-semibold ${moodDetails[activeMood].badge}`}
           >
-            {moodDetails[moodKey].label}
+            {moodDetails[activeMood].label}
           </span>
           <span className="text-xs font-semibold text-slate-400">
             {Math.round(confidence * 100)}% confidence
           </span>
         </div>
         <p className="mt-4 text-base font-medium text-slate-700">
-          {moodDetails[moodKey].description}
+          {moodDetails[activeMood].description}
         </p>
         {!hasFace && isAnalyzing && (
           <p className="mt-3 text-sm text-amber-600">
@@ -432,6 +443,17 @@ export default function MoodDashboard() {
           <button
             className="rounded-full bg-emerald-500 px-6 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5"
             type="button"
+            onClick={() => {
+              setConfirmedMood(null);
+              lastRequestedMoodRef.current = null;
+              fetchRecommendations(moodKey).catch((error) => {
+                setPlaylistStatus({
+                  state: "error",
+                  message:
+                    error instanceof Error ? error.message : "Unknown error",
+                });
+              });
+            }}
           >
             Yes
           </button>
@@ -439,7 +461,7 @@ export default function MoodDashboard() {
             className="rounded-full bg-red-500 px-6 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5"
             type="button"
             onClick={() => {
-              setCorrectionMood(moodKey);
+              setCorrectionMood(activeMood);
               setCorrectionError(null);
               setShowCorrection(true);
             }}
