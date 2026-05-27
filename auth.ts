@@ -74,6 +74,7 @@ export const authOptions: AuthOptions = {
           ...token,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
+          scope: account.scope,
           accessTokenExpires: account.expires_at
             ? account.expires_at * 1000
             : Date.now() + 3600 * 1000,
@@ -89,6 +90,7 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
       session.error = token.error as string | undefined;
+      session.scope = token.scope as string | undefined;
       return session;
     },
   },
