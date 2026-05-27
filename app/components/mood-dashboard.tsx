@@ -90,6 +90,10 @@ export default function MoodDashboard() {
   }>({ state: "idle" });
   const [savingPlaylist, setSavingPlaylist] = useState(false);
   const [savedPlaylistUrl, setSavedPlaylistUrl] = useState<string | null>(null);
+  const [showCorrection, setShowCorrection] = useState(false);
+  const [correctionMood, setCorrectionMood] = useState<MoodKey>("neutral");
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [correctionSaving, setCorrectionSaving] = useState(false);
 
   const moodKey = useMemo(
     () => mapExpressionToMood(dominantExpression),
@@ -214,30 +218,53 @@ export default function MoodDashboard() {
     if (lastRequestedMoodRef.current === moodKey) return;
 
     lastRequestedMoodRef.current = moodKey;
+    fetchRecommendations(moodKey).catch((error) => {
+      setPlaylistStatus({
+        state: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    });
+  }, [isAnalyzing, moodKey, session?.accessToken, hasFace]);
+
+  async function fetchRecommendations(requestedMood: MoodKey) {
     setPlaylistStatus({ state: "loading" });
     setSavedPlaylistUrl(null);
 
-    fetch(`/api/spotify/recommendations?mood=${moodKey}`, {
-      cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error ?? "Failed to fetch recommendations.");
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setTracks(data.tracks ?? []);
-        setPlaylistStatus({ state: "ready" });
-      })
-      .catch((error) => {
-        setPlaylistStatus({
-          state: "error",
-          message: error instanceof Error ? error.message : "Unknown error",
-        });
-      });
-  }, [isAnalyzing, moodKey, session?.accessToken, hasFace]);
+    const response = await fetch(
+      `/api/spotify/recommendations?mood=${requestedMood}`,
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data?.error ?? "Failed to fetch recommendations.");
+    }
+
+    const data = await response.json();
+    const nextTracks = data.tracks ?? [];
+    setTracks(nextTracks);
+    setPlaylistStatus({ state: "ready" });
+    return nextTracks as Track[];
+  }
+
+  async function savePlaylist(requestedMood: MoodKey, nextTracks: Track[]) {
+    const response = await fetch("/api/spotify/playlist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mood: requestedMood,
+        tracks: nextTracks.map((track) => track.uri),
+      }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data?.error ?? "Failed to save playlist.");
+    }
+
+    const data = await response.json();
+    return data.url ?? null;
+  }
 
   async function handleSavePlaylist() {
     if (!session?.accessToken || tracks.length === 0) return;
@@ -245,22 +272,8 @@ export default function MoodDashboard() {
     setSavedPlaylistUrl(null);
 
     try {
-      const response = await fetch("/api/spotify/playlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mood: moodKey,
-          tracks: tracks.map((track) => track.uri),
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error ?? "Failed to save playlist.");
-      }
-
-      const data = await response.json();
-      setSavedPlaylistUrl(data.url ?? null);
+      const url = await savePlaylist(moodKey, tracks);
+      setSavedPlaylistUrl(url);
     } catch (error) {
       setPlaylistStatus({
         state: "error",
@@ -268,6 +281,28 @@ export default function MoodDashboard() {
       });
     } finally {
       setSavingPlaylist(false);
+    }
+  }
+
+  async function handleCorrectionSubmit() {
+    if (!session?.accessToken) return;
+    setCorrectionError(null);
+    setCorrectionSaving(true);
+
+    try {
+      const nextTracks = await fetchRecommendations(correctionMood);
+      if (nextTracks.length === 0) {
+        throw new Error("No tracks found for that mood.");
+      }
+      const url = await savePlaylist(correctionMood, nextTracks);
+      setSavedPlaylistUrl(url);
+      setShowCorrection(false);
+    } catch (error) {
+      setCorrectionError(
+        error instanceof Error ? error.message : "Unable to save playlist."
+      );
+    } finally {
+      setCorrectionSaving(false);
     }
   }
 
@@ -403,11 +438,68 @@ export default function MoodDashboard() {
           <button
             className="rounded-full bg-red-500 px-6 py-2 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5"
             type="button"
+            onClick={() => {
+              setCorrectionMood(moodKey);
+              setCorrectionError(null);
+              setShowCorrection(true);
+            }}
           >
             No
           </button>
         </div>
       </section>
+
+      {showCorrection && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-6">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h4 className="text-lg font-semibold text-slate-900">
+              Sorry about that.
+            </h4>
+            <p className="mt-2 text-sm text-slate-600">
+              Tell us your current mood and we will create a playlist for it.
+            </p>
+            <div className="mt-4">
+              <label className="text-sm font-semibold text-slate-700">
+                Current mood
+              </label>
+              <select
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-100/70 px-4 py-3 text-sm text-slate-900"
+                value={correctionMood}
+                onChange={(event) =>
+                  setCorrectionMood(event.target.value as MoodKey)
+                }
+              >
+                {Object.keys(moodDetails).map((key) => (
+                  <option key={key} value={key}>
+                    {moodDetails[key as MoodKey].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {correctionError && (
+              <p className="mt-3 text-sm text-red-600">{correctionError}</p>
+            )}
+            <div className="mt-5 flex gap-3">
+              <button
+                className="flex-1 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                type="button"
+                onClick={() => setShowCorrection(false)}
+                disabled={correctionSaving}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                type="button"
+                onClick={handleCorrectionSubmit}
+                disabled={correctionSaving}
+              >
+                {correctionSaving ? "Saving..." : "Create playlist"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
