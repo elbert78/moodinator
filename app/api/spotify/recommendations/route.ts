@@ -13,6 +13,10 @@ const allowedMoods: MoodKey[] = [
   "neutral",
 ];
 
+function buildSearchQuery(mood: MoodKey, seedGenres: string[]) {
+  return [mood, ...seedGenres].join(" ");
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -41,6 +45,7 @@ export async function GET(request: Request) {
   }
 
   const baseUrl = "https://api.spotify.com/v1/recommendations";
+  const searchUrl = "https://api.spotify.com/v1/search";
   const headers = {
     Authorization: `Bearer ${session.accessToken}`,
   };
@@ -82,13 +87,14 @@ export async function GET(request: Request) {
   });
 
   if (!response.ok) {
-    const fallbackQuery = new URLSearchParams({
-      limit: "8",
+    const searchQuery = new URLSearchParams({
+      type: "track",
       market: "US",
-      seed_genres: "pop",
+      limit: "8",
+      q: buildSearchQuery(mood, params.seed_genres),
     });
 
-    response = await fetch(`${baseUrl}?${fallbackQuery.toString()}`, {
+    response = await fetch(`${searchUrl}?${searchQuery.toString()}`, {
       headers,
       cache: "no-store",
     });
@@ -117,8 +123,11 @@ export async function GET(request: Request) {
   }
 
   const data = await response.json();
+  const sourceTracks = Array.isArray(data?.tracks)
+    ? data.tracks
+    : data?.tracks?.items ?? [];
   const tracks =
-    data.tracks?.map((track: any) => ({
+    sourceTracks?.map((track: any) => ({
       id: track.id,
       name: track.name,
       artists: track.artists?.map((artist: any) => artist.name).join(", "),
