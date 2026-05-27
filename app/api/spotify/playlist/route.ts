@@ -178,10 +178,10 @@ export async function POST(request: Request) {
     playlist = await playlistResponse.json();
   }
 
-  const addTracksResponse = await fetch(
-    `https://api.spotify.com/v1/playlists/${playlist.id}/items`,
+  const replaceTracksResponse = await fetch(
+    `https://api.spotify.com/v1/playlists/${playlist.id}/tracks`,
     {
-      method: "POST",
+      method: "PUT",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
         "Content-Type": "application/json",
@@ -190,9 +190,9 @@ export async function POST(request: Request) {
     }
   );
 
-  if (!addTracksResponse.ok) {
-    const errorText = await addTracksResponse.text().catch(() => "");
-    let errorMessage = "Failed to add tracks";
+  if (!replaceTracksResponse.ok) {
+    const errorText = await replaceTracksResponse.text().catch(() => "");
+    let errorMessage = "Failed to replace tracks";
     let errorPayload: unknown = undefined;
 
     try {
@@ -205,12 +205,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: errorMessage,
-        status: addTracksResponse.status,
-        statusText: addTracksResponse.statusText,
+        status: replaceTracksResponse.status,
+        statusText: replaceTracksResponse.statusText,
         details: errorText,
         spotifyError: errorPayload,
       },
-      { status: addTracksResponse.status }
+      { status: replaceTracksResponse.status }
     );
   }
 

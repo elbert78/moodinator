@@ -45,6 +45,14 @@ function buildSearchQuery(mood: MoodKey, seedGenres: string[]) {
   return [mood, ...seedGenres].join(" ");
 }
 
+function shuffle<T>(items: T[]) {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
 function buildMoodSearchQueries(
   mood: MoodKey,
   params: ReturnType<typeof getSpotifyRecommendationParams>
@@ -173,7 +181,7 @@ export async function GET(request: Request) {
     });
   }
 
-  const searchQueries = buildMoodSearchQueries(mood, params);
+  const searchQueries = shuffle(buildMoodSearchQueries(mood, params));
   const searchResults = await Promise.all(
     searchQueries.map((queryText) => searchTracks(queryText, headers))
   );
@@ -260,7 +268,7 @@ export async function GET(request: Request) {
     combinedTracks = mapTracks(data?.tracks?.items ?? []);
   }
 
-  const tracks = combinedTracks
+  const tracks = shuffle([...combinedTracks])
     .slice(0, 8)
     .map(({ popularity: _popularity, ...track }) => track);
 
