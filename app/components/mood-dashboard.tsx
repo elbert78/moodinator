@@ -393,11 +393,13 @@ export default function MoodDashboard() {
             ) : null}
             {tracks.map((track, index) => {
               const isCurrentTrack = playerState.currentTrack?.uri === track.uri;
+              const isPending = playerState.playPending && !isCurrentTrack;
+              const isDisabled = !playerState.isReady || playerState.playPending;
               return (
                 <button
                   key={track.id}
                   type="button"
-                  disabled={!playerState.isReady}
+                  disabled={isDisabled}
                   onClick={() =>
                     playTracks(
                       tracks.map((t) => t.uri),
@@ -407,13 +409,19 @@ export default function MoodDashboard() {
                   className={`group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium shadow-[0_10px_25px_-20px_rgba(15,23,42,0.4)] transition disabled:cursor-default ${
                     isCurrentTrack
                       ? "bg-slate-900 text-white"
-                      : "bg-slate-100/90 text-slate-700 hover:bg-slate-200/80 disabled:opacity-80"
+                      : "bg-slate-100/90 text-slate-700 hover:bg-slate-200/80 disabled:opacity-60"
                   }`}
                 >
-                  {/* Play / equalizer icon */}
+                  {/* Play / spinner / equalizer icon */}
                   <span className="shrink-0">
-                    {isCurrentTrack && playerState.isPlaying ? (
-                      // Animated bars while playing
+                    {playerState.playPending && isCurrentTrack ? (
+                      // Spinner while this track's request is in-flight
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="animate-spin text-slate-300" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                        <path d="M12 2a10 10 0 0 1 10 10" />
+                      </svg>
+                    ) : isCurrentTrack && playerState.isPlaying ? (
+                      // Equalizer bars while playing
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-emerald-400">
                         <rect x="2" y="10" width="4" height="10" rx="1" />
                         <rect x="10" y="4" width="4" height="16" rx="1" />
@@ -429,7 +437,7 @@ export default function MoodDashboard() {
                           isCurrentTrack
                             ? "text-slate-300"
                             : "text-slate-400 group-hover:text-slate-600"
-                        } ${!playerState.isReady ? "opacity-0" : ""}`}
+                        } ${!playerState.isReady || isPending ? "opacity-0" : ""}`}
                       >
                         <path d="M8 5v14l11-7z" />
                       </svg>

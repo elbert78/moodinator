@@ -72,6 +72,7 @@ export interface PlayerState {
   volume: number;
   deviceId: string | null;
   error: string | null;
+  playPending: boolean;
 }
 
 interface SpotifyPlayerContextValue {
@@ -107,6 +108,7 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     volume: 0.5,
     deviceId: null,
     error: null,
+    playPending: false,
   });
 
   useEffect(() => {
@@ -130,7 +132,8 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     });
 
     player.addListener("not_ready", () => {
-      setState((prev) => ({ ...prev, isReady: false }));
+      deviceIdRef.current = null;
+      setState((prev) => ({ ...prev, isReady: false, deviceId: null }));
     });
 
     player.addListener("player_state_changed", (ps: SpotifyPlaybackState | null) => {
@@ -193,17 +196,42 @@ export function SpotifyPlayerProvider({ children }: { children: React.ReactNode 
     const token = accessTokenRef.current;
     const deviceId = deviceIdRef.current;
     if (!token || !deviceId) return;
-    await fetch(
-      `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ uris, offset: { position: offsetIndex } }),
-      }
-    );
+
+    setState((prev) => ({ ...prev, playPending: true, error: null }));
+
+    const attempt = (devId: string, tok: string) =>
+      fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(devId)}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${tok}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uris, offset: { position: offsetIndex } }),
+        }
+      );
+
+    let res = await attempt(deviceId, token);
+
+    // 404 = device not yet registered on Spotify's backend (SDK ready/backend lag)
+    // 502/503 = transient Spotify API error — retry once after a short delay
+    if (!res.ok && (res.status === 404 || res.status === 502 || res.status === 503)) {
+      await new Promise<void>((r) => setTimeout(r, 500));
+      // Re-read refs in case the device reconnected during the wait
+      const retryDeviceId = deviceIdRef.current ?? deviceId;
+      const retryToken = accessTokenRef.current ?? token;
+      res = await attempt(retryDeviceId, retryToken);
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message: string =
+        body?.error?.message ?? `Playback error (${res.status})`;
+      setState((prev) => ({ ...prev, error: message, playPending: false }));
+    } else {
+      setState((prev) => ({ ...prev, playPending: false }));
+    }
   }, []);
 
   const pause = useCallback(async () => {
