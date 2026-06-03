@@ -1,5 +1,52 @@
 export type MoodKey = "happy" | "sad" | "angry" | "surprised" | "neutral";
 
+// Each mood has several title variants; the caller may pick by index or randomly.
+const playlistTitles: Record<MoodKey, string[]> = {
+  happy: [
+    "Feel-Good Energy",
+    "Sunshine & Good Vibes",
+    "Pure Joy, No Filter",
+    "Bright Side Anthems",
+  ],
+  sad: [
+    "Late Night Reflections",
+    "Soft Tears & Slow Songs",
+    "Quiet Places",
+    "Gentle Ache",
+  ],
+  angry: [
+    "Full Throttle",
+    "Channel the Rage",
+    "High Voltage",
+    "Unfiltered Intensity",
+  ],
+  surprised: [
+    "Plot Twist Playlist",
+    "Wide-Eyed & Electric",
+    "Expect the Unexpected",
+    "Bold & Unscripted",
+  ],
+  neutral: [
+    "Calm & Collected",
+    "Focus & Momentum",
+    "Steady State",
+    "Quiet Concentration",
+  ],
+};
+
+const fallbackTitle = "Your Mood Mix";
+
+/**
+ * Returns a playlist title for a given mood.
+ * Pass an optional `variant` index to cycle through alternatives
+ * (wraps around, so any integer is safe).
+ */
+export function getPlaylistTitle(mood: MoodKey | null | undefined, variant = 0): string {
+  if (!mood) return fallbackTitle;
+  const titles = playlistTitles[mood];
+  return titles[Math.abs(variant) % titles.length];
+}
+
 export function getSpotifyRecommendationParams(mood: MoodKey) {
   switch (mood) {
     case "happy":

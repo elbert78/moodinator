@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import * as faceapi from "face-api.js";
 import { useSpotifyPlayer } from "@/app/context/spotify-player";
-
-type MoodKey = "happy" | "sad" | "angry" | "surprised" | "neutral";
+import { getPlaylistTitle } from "@/lib/spotify";
+import type { MoodKey } from "@/lib/spotify";
 
 type Track = {
   id: string;
@@ -98,6 +98,7 @@ export default function MoodDashboard() {
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [confirmedMood, setConfirmedMood] = useState<MoodKey | null>(null);
   const [accuracyFeedback, setAccuracyFeedback] = useState<string | null>(null);
+  const [titleVariant, setTitleVariant] = useState(0);
 
   const moodKey = useMemo(
     () => mapExpressionToMood(dominantExpression),
@@ -105,6 +106,11 @@ export default function MoodDashboard() {
   );
 
   const activeMood = confirmedMood ?? moodKey;
+
+  const playlistTitle = useMemo(
+    () => getPlaylistTitle(tracks.length > 0 ? activeMood : null, titleVariant),
+    [activeMood, tracks.length, titleVariant]
+  );
 
   useEffect(() => {
     let active = true;
@@ -252,6 +258,7 @@ export default function MoodDashboard() {
     const data = await response.json();
     const nextTracks = data.tracks ?? [];
     setTracks(nextTracks);
+    setTitleVariant((v) => v + 1);
     setPlaylistStatus({ state: "ready" });
     return nextTracks as Track[];
   }
@@ -363,7 +370,7 @@ export default function MoodDashboard() {
         <div className="rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.6)] backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-xl font-semibold text-slate-900">
-              Judul Playlist
+              {playlistTitle}
             </h3>
             {playerState.isReady && (
               <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
