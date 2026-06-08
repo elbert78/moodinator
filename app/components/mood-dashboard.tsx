@@ -331,7 +331,7 @@ export default function MoodDashboard() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-32">
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.6)] backdrop-blur">
           <h2 className="text-2xl font-semibold text-slate-900">
             Detect your mood!
@@ -367,9 +367,9 @@ export default function MoodDashboard() {
           )}
         </div>
 
-        <div className="rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.6)] backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xl font-semibold text-slate-900">
+        <div className="min-w-0 rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.6)] backdrop-blur">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate text-xl font-semibold text-slate-900">
               {playlistTitle}
             </h3>
             {playerState.isReady && (
@@ -379,7 +379,7 @@ export default function MoodDashboard() {
               </span>
             )}
           </div>
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 min-w-0 space-y-3">
             {playlistStatus.state === "loading" ? (
               <div className="rounded-2xl bg-slate-100/90 px-4 py-3 text-sm font-medium text-slate-500">
                 Generating recommendations...
@@ -406,7 +406,7 @@ export default function MoodDashboard() {
                       index
                     )
                   }
-                  className={`group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium shadow-[0_10px_25px_-20px_rgba(15,23,42,0.4)] transition disabled:cursor-default ${
+                  className={`group flex min-w-0 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium shadow-[0_10px_25px_-20px_rgba(15,23,42,0.4)] transition disabled:cursor-default ${
                     isCurrentTrack
                       ? "bg-slate-900 text-white"
                       : "bg-slate-100/90 text-slate-700 hover:bg-slate-200/80 disabled:opacity-60"
@@ -443,7 +443,7 @@ export default function MoodDashboard() {
                       </svg>
                     )}
                   </span>
-                  <span className="min-w-0 truncate">
+                  <span className="block min-w-0 flex-1 truncate">
                     {track.name} — {track.artists}
                   </span>
                 </button>
